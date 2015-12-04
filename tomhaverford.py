@@ -25,6 +25,7 @@ for i in range(20):
                    random.randint(0, h-1)))
 
 queues = [collections.deque([point]) for point in points]
+weight = 255//len(points)
 
 print("Divvying up the image.")
 # loop for as long as we have at least one nonempty queue
@@ -51,8 +52,6 @@ while False in [len(queue) == 0 for queue in queues]:
             queues[i].append((x_, y_))
 
 assert True not in [None in col for col in grid]
-
-weight = 255//len(points)
 
 for x in range(w):
     for y in range(h):

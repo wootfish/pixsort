@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+import numpy as np
 from PIL import Image
 from math import cos, pi
 import sys
@@ -13,8 +14,10 @@ if len(sys.argv) < 2:
 
 infile = sys.argv[1]
 im = Image.open(infile).convert("RGB")
-im.thumbnail((900,700)) # make sure dimensions are sane
+#im.thumbnail((300,300)) # make sure dimensions are sane
 h = im.size[1]
+
+ar = np.asarray(im)
 
 extrema = []
 for x in range(0, im.size[0]):
@@ -23,12 +26,24 @@ for x in range(0, im.size[0]):
 
     local = []
     for y in range(0, im.size[1]):
-        pix = im.getpixel((x, y))
+        #pix = im.getpixel((x, y))
+        pix = ar[y][x]
         pixweight = pix[0]**2 + pix[1]**2 + pix[2]**2
         heapq.heappush(local, (-pixweight, (x, y)))
-    extrema += heapq.nsmallest(5, local)
 
-extrema = sorted(extrema)[:-(len(extrema)//8)]
+    local.sort()
+    i = 0
+    while i < len(local):
+        local = [pix for pix in local
+                 if pix != local[i] and abs(pix[1][1] - local[i][1][1]) > 3]
+        i += 1
+
+    extrema += heapq.nsmallest(12, local)
+
+# first we clip off the least remarkable 10th of the extrema
+# then, we order the remaining ones by y-coordinate
+extrema = sorted(extrema)[:-(len(extrema)//10)]
+extrema.sort(key=lambda t:t[1][1])
 print("\n", len(extrema), "extrema collected and ordered!")
 print(" Sorting...")
 
@@ -43,11 +58,12 @@ for weight, extremum in extrema:
 
     pixels = []
     for y in range(y1, y2):
-        pixels.append(im.getpixel((x, y)))
+        #pixels.append(im.getpixel((x, y)))
+        pixels.append(ar[y][x])
     pixels.sort(key=lambda pixel : pixel[0]**2 + pixel[1]**2 + pixel[2]**2, reverse=False)
 
     for i, y in enumerate(range(y1, y2)):
-        im.putpixel((x, y), pixels[i])
+        im.putpixel((x, y), tuple(pixels[i]))
 
 
 outfile = ''.join(infile.split(".")[:-1]) + "_sorted.png"

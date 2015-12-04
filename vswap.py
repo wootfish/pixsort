@@ -22,9 +22,10 @@ print("Processing...", end="")
 w = im.size[0]
 h = im.size[1]
 for x in range(0, w):
-    print(x, " ", end="")
-    sys.stdout.flush()
-    numswaps = random.randint(1, h*8)
+    if x%10==0:
+        print(x, " ", end="")
+        sys.stdout.flush()
+    numswaps = random.randint(1, int((6*h)**0.5)) ** 2
 
     for i in range(numswaps):
         #y = random.randint(0, im.size[1]-2)
@@ -40,5 +41,5 @@ for x in range(0, w):
             im.putpixel((x, y+1), pix1)
 print("")
 
-outfile = ''.join(infile.split(".")[:-1]) + "_sorted"
+outfile = ''.join(infile.split(".")[:-1]) + "_sorted.png"
 im.save(outfile, "PNG")

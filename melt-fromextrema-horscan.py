@@ -17,24 +17,33 @@ im.thumbnail((900,700)) # make sure dimensions are sane
 h = im.size[1]
 
 extrema = []
-for x in range(0, im.size[0]):
-    if x%10==0: print(x, end=" ")
+for y in range(0, im.size[1]):
+    if y%10==0: print(y, end=" ")
     sys.stdout.flush()
 
     local = []
-    for y in range(0, im.size[1]):
+    for x in range(0, im.size[0]):
         pix = im.getpixel((x, y))
         pixweight = pix[0]**2 + pix[1]**2 + pix[2]**2
         heapq.heappush(local, (-pixweight, (x, y)))
-    extrema += heapq.nsmallest(5, local)
+    extrema += heapq.nsmallest(16, local)
 
-extrema = sorted(extrema)[:-(len(extrema)//8)]
-print("\n", len(extrema), "extrema collected and ordered!")
+extrema = sorted(extrema)[:-(len(extrema)//10)]
+i = 0
+print("")
+print(len(extrema))
+while i < len(extrema):
+    x = extrema[i][1][0]
+    y = extrema[i][1][1]
+    extrema = [point for point in extrema
+               if (x-point[1][0])**2 + (y-point[1][1])**2 > 3]
+    i += 1
+print(len(extrema))
+
+print("\n", len(extrema), "extrema collected, ordered, and filtered!")
 print(" Sorting...")
 
 for weight, extremum in extrema:
-    #print(".", end="")
-    #sys.stdout.flush()
     x = extremum[0]
     y2 = extremum[1]
     y1 = max(y2 - random.randint(1, h//3), 0)

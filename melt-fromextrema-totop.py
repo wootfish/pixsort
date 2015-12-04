@@ -13,7 +13,7 @@ if len(sys.argv) < 2:
 
 infile = sys.argv[1]
 im = Image.open(infile).convert("RGB")
-im.thumbnail((900,700)) # make sure dimensions are sane
+#im.thumbnail((600,600)) # make sure dimensions are sane
 h = im.size[1]
 
 extrema = []
@@ -26,9 +26,19 @@ for x in range(0, im.size[0]):
         pix = im.getpixel((x, y))
         pixweight = pix[0]**2 + pix[1]**2 + pix[2]**2
         heapq.heappush(local, (-pixweight, (x, y)))
-    extrema += heapq.nsmallest(5, local)
 
-extrema = sorted(extrema)[:-(len(extrema)//8)]
+    local.sort()
+    i = 0
+    while i < len(local):
+        local = [pix for pix in local if abs(pix[1][1] - local[i][1][1]) > 5]
+        i += 1
+
+    extrema += heapq.nsmallest(8, local)
+
+# first we clip off the least remarkable 10th of the extrema
+# then, we order the remaining ones by y-coordinate
+extrema = sorted(extrema)[:-(len(extrema)//10)]
+extrema.sort(key=lambda t:t[1][1])
 print("\n", len(extrema), "extrema collected and ordered!")
 print(" Sorting...")
 
@@ -40,6 +50,11 @@ for weight, extremum in extrema:
     y1 = max(y2 - random.randint(1, h//3), 0)
     #y1 = extremum[1]
     #y2 = min(y1 + random.randint(1, h//34)**2, h)
+
+    # float('inf') is needed to deal with the edge case when the list
+    # comprehension is empty
+#    print(float('inf'), y1, *[point[1] for weight,point in extrema if point[1] < extremum[1]])
+    y1 = min(float('inf'), y1, *[point[1] for weight,point in extrema if point[1] < extremum[1]])
 
     pixels = []
     for y in range(y1, y2):
