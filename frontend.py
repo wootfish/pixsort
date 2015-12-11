@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 # http://effbot.org/tkinterbook/tkinter-hello-again.htm
 
 import time
@@ -19,17 +21,18 @@ class MainWindow:
         self.imglabel = tk.Label(frame, image=self.photo)
 
         # sort-picker menu & associated stringvar
-        self.currsort = tk.StringVar()
-        self.currsort.trace("w", self.update_controls)
-
         self.sorts = {
             "Pixel swap":self.sort_pairs,
             "Band sort":self.sort_lines,
         }
+        self.currsort = tk.StringVar()
+        self.currsort.trace("w", self.update_controls)
+        self.currsort.set(sorted(self.sorts)[0])
+
         self.sortpicker = tk.OptionMenu(
             frame,
             self.currsort,
-            *self.sorts
+            *sorted(self.sorts),
         )
 
         # do-interesting-shit button
@@ -122,17 +125,21 @@ class MainWindow:
 
     def sort_pairs(self, im, rounds=30, vert=False):
         for i in range(rounds):
-            for _ in range(im.size[0]*im.size[1]//40):
+            for _ in range(5*max(im.size)):
                 x = random.randrange(0, im.size[0] - (1 if vert else 2))
                 y = random.randrange(0, im.size[1] - (2 if vert else 1))
-
                 p1 = (x, y)
                 p2 = (x, y+1) if vert else (x+1, y)
 
-                if weight(im.getpixel(p1)) < weight(im.getpixel(p2)):
-                    tmp = im.getpixel(p1)
-                    im.putpixel(p1, im.getpixel(p2))
-                    im.putpixel(p2, tmp)
+                while weight(im.getpixel(p1)) >= weight(im.getpixel(p2)):
+                    x = random.randrange(0, im.size[0] - (1 if vert else 2))
+                    y = random.randrange(0, im.size[1] - (2 if vert else 1))
+                    p1 = (x, y)
+                    p2 = (x, y+1) if vert else (x+1, y)
+
+                tmp = im.getpixel(p1)
+                im.putpixel(p1, im.getpixel(p2))
+                im.putpixel(p2, tmp)
             self.redraw()
 
     def sort_lines(self, im, rounds=30, reverse=True, vert=True):
