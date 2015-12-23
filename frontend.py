@@ -6,6 +6,7 @@ import time
 import sys
 import random
 import tkinter as tk
+import heapq
 from PIL import Image, ImageTk
 
 class MainWindow:
@@ -24,6 +25,7 @@ class MainWindow:
         self.sorts = {
             "Pixel swap":self.sort_pairs,
             "Band sort":self.sort_lines,
+            "Sort from extrema":self.sort_extrema,
         }
         self.currsort = tk.StringVar()
         self.currsort.trace("w", self.update_controls)
@@ -160,6 +162,55 @@ class MainWindow:
                 for i, y in enumerate(range(y1, y2)):
                     im.putpixel((x, y), l[i])
             self.redraw()
+
+    def sort_extrema(self, im, percol=5, reverse=True, minima=True, mindist=5,
+                    trimfactor=-1):
+        extrema = []
+
+        # loop over columns, collecting top maximums or minimums of each
+        # after this loop we have a populated extrema list & can start sorting
+        for x in range(0, im.size[0]):
+            if x%35==0: print(x/im.size[0])
+            local = []
+            for y in range(0, im.size[1]):
+                pix = im.getpixel((x, y))
+                pixweight = pix[0]**2 + pix[1]**2 + pix[2]**2
+                local.append((pixweight*(1 if minima else -1), (x, y)))
+            local.sort()
+
+            for i in range(percol):
+                if i >= len(local):
+                    break
+                local = [pix for pix in local if abs(pix[1][1] - local[i][1][1]) > mindist]
+            extrema += local[:percol]
+
+        # trim off the lamest extrema -- negative trimfactor keeps whole list
+        if trimfactor > 0:
+            extrema.sort()
+            extrema = extrema[:-len(extrema)//trimfactor]
+
+        extrema.sort(key=lambda pix:pix[1][1]) # sort by y-coordinate -- looks cooler
+        for weight, extremum in extrema:
+            x = extremum[0]
+            y = extremum[1]
+            yprime = y - random.randint(1, im.size[1]//3)
+            yprime = max(yprime, 0)
+
+            # make sure this sort doesn't intersect any other extrema
+            #for _, point in extrema:
+            #    if point[1] >= y: continue
+            #    if point[1] > yprime: yprime=point[1]-1
+
+            pixels = []
+            for y in range(yprime, y):
+                pixels.append(im.getpixel((x, y)))
+            pixels.sort(key=lambda pix:pix[0]**2 + pix[1]**2 + pix[2]**2, reverse=reverse)
+
+            for i, y in enumerate(range(yprime, y)):
+                im.putpixel((x, y), pixels[i])
+
+            self.redraw()
+
 
 def weight(t):
     r, g, b = t

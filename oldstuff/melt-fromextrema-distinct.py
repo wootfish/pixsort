@@ -42,7 +42,6 @@ extrema.sort(key=lambda t:t[1][1])
 print("\n", len(extrema), "extrema collected and ordered!")
 print(" Sorting...")
 
-y2_old = 0
 for weight, extremum in extrema:
     #print(".", end="")
     #sys.stdout.flush()
@@ -64,7 +63,6 @@ for weight, extremum in extrema:
 
     for i, y in enumerate(range(y1, y2)):
         im.putpixel((x, y), pixels[i])
-    y2_old = y2
 
 
 outfile = ''.join(infile.split(".")[:-1]) + "_sorted.png"
