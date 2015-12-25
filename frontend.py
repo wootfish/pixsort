@@ -125,7 +125,16 @@ class MainWindow:
         self.imglabel.config(image=self.photo)
         self.imglabel.update_idletasks()
 
-    def sort_pairs(self, im, rounds=30, vert=False):
+    def sort_pairs(self, im):
+        self.sort_pairs_internal(im)
+
+    def sort_lines(self, im):
+        self.sort_lines_internal(im)
+
+    def sort_extrema(self, im):
+        self.sort_extrema_internal(im, minima=False, reverse=False)
+
+    def sort_pairs_internal(self, im, rounds=30, vert=False):
         for i in range(rounds):
             for _ in range(5*max(im.size)):
                 x = random.randrange(0, im.size[0] - (1 if vert else 2))
@@ -144,7 +153,7 @@ class MainWindow:
                 im.putpixel(p2, tmp)
             self.redraw()
 
-    def sort_lines(self, im, rounds=30, reverse=True, vert=True):
+    def sort_lines_internal(self, im, rounds=30, reverse=True, vert=True):
         for i in range(rounds):
             for _ in range(5):
                 x = random.randrange(0, im.size[0]-1)
@@ -163,8 +172,8 @@ class MainWindow:
                     im.putpixel((x, y), l[i])
             self.redraw()
 
-    def sort_extrema(self, im, percol=5, reverse=True, minima=True, mindist=5,
-                    trimfactor=-1):
+    def sort_extrema_internal(self, im, percol=5, reverse=True, minima=True, mindist=5,
+                    trimfactor=5):
         extrema = []
 
         # loop over columns, collecting top maximums or minimums of each
@@ -189,11 +198,12 @@ class MainWindow:
             extrema.sort()
             extrema = extrema[:-len(extrema)//trimfactor]
 
-        extrema.sort(key=lambda pix:pix[1][1]) # sort by y-coordinate -- looks cooler
-        for weight, extremum in extrema:
+        #extrema.sort(key=lambda pix:pix[1][1]) # sort by y-coordinate -- looks cooler
+        for _, extremum in extrema:
             x = extremum[0]
             y = extremum[1]
             yprime = y - random.randint(1, im.size[1]//3)
+            #yprime = y - random.randint(1, y//3)
             yprime = max(yprime, 0)
 
             # make sure this sort doesn't intersect any other extrema
@@ -204,7 +214,7 @@ class MainWindow:
             pixels = []
             for y in range(yprime, y):
                 pixels.append(im.getpixel((x, y)))
-            pixels.sort(key=lambda pix:pix[0]**2 + pix[1]**2 + pix[2]**2, reverse=reverse)
+            pixels.sort(key=weight, reverse=reverse)
 
             for i, y in enumerate(range(yprime, y)):
                 im.putpixel((x, y), pixels[i])
@@ -221,7 +231,7 @@ def main():
 
     root = tk.Tk()
     im_original = Image.open(sys.argv[1]).convert("RGB")
-    im_original.thumbnail((800, 600))
+    im_original.thumbnail((800, 700))
 
     mainWindow = MainWindow(root, im_original)
 
