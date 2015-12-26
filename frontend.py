@@ -15,11 +15,54 @@ class MainWindow:
         frame.grid()
         self.frame = frame
 
+        # decoration frames
+        self.region1 = tk.Frame(
+            frame,
+            relief=tk.RAISED,
+            bd=2,
+        )
+
+        self.region2 = tk.Frame(
+            frame,
+            relief=tk.RAISED,
+            bd=2,
+        )
+
+        self.region3 = tk.Frame(
+            frame,
+            relief=tk.SUNKEN,
+            bd=2,
+        )
+
+        self.region4 = tk.Frame(
+            frame,
+            relief=tk.RAISED,
+            bd=2,
+        )
+
         # picture
         self.images = [im]
         self.img_index = 0
         self.photo = ImageTk.PhotoImage(self.images[self.img_index])
-        self.imglabel = tk.Label(frame, image=self.photo)
+        self.imglabel = tk.Label(self.region1, image=self.photo)
+
+        # undo/redo system
+        self.undobutton = tk.Button(
+            self.region1,
+            text="Prev",
+            command=self.decrement_ind,
+        )
+
+        self.redobutton = tk.Button(
+            self.region1,
+            text="Next",
+            command=self.increment_ind,
+        )
+
+        self.indexlabel = tk.Label(
+            self.region1,
+            text=str(self.img_index),
+        )
 
         # sort-picker menu & associated stringvar
         self.sorts = {
@@ -32,14 +75,14 @@ class MainWindow:
         self.currsort.trace("w", self.update_controls)
 
         self.sortpicker = tk.OptionMenu(
-            frame,
+            self.region2,
             self.currsort,
             *sorted(self.sorts),
         )
 
         # slider for adjusting number of rounds
         self.roundslider = tk.Scale(
-            frame,
+            self.region3,
             from_=1,
             to=100,
             orient=tk.HORIZONTAL,
@@ -47,58 +90,45 @@ class MainWindow:
 
         # progress bars (most sorts use one; extrema sort uses two)
         self.progress1 = ttk.Progressbar(
-            frame,
+            self.region4,
             orient=tk.HORIZONTAL,
         )
 
         self.progress2 = ttk.Progressbar(
-            frame,
+            self.region4,
             orient=tk.HORIZONTAL,
         )
 
         # do-interesting-shit button
         self.drawbutton = tk.Button(
-            frame,
+            self.region4,
             text="Run!",
             command=self.draw,
         )
 
-        # undo/redo system
-        self.undobutton = tk.Button(
-            frame,
-            text="Prev",
-            command=self.decrement_ind,
-        )
-
-        self.redobutton = tk.Button(
-            frame,
-            text="Next",
-            command=self.increment_ind,
-        )
-
-        self.indexlabel = tk.Label(
-            frame,
-            text=str(self.img_index),
-        )
-
         # save button
         self.savebutton = tk.Button(
-            frame,
+            self.region4,
             text="Save",
             command=self.save_img,
         )
 
         # pack all the non-sort-specific widgets into a nice grid layout
-        self.imglabel.grid(column=0, row=0, columnspan=3, rowspan=8)
+        self.region1.grid(row=0, column=0, rowspan=9, columnspan=3)
+        self.imglabel.grid(column=0, row=0, columnspan=3)
+        self.undobutton.grid(column=0, row=1)
+        self.indexlabel.grid(column=1, row=1)
+        self.redobutton.grid(column=2, row=1)
 
-        self.undobutton.grid(column=0, row=8)
-        self.indexlabel.grid(column=1, row=8)
-        self.redobutton.grid(column=2, row=8)
-
+        self.region2.grid(row=0, column=3)
         self.sortpicker.grid(column=3, row=0, columnspan=2)
-        self.progress1.grid(column=3, row=6, columnspan=2)
-        self.drawbutton.grid(column=3, row=8)
-        self.savebutton.grid(column=4, row=8)
+
+        self.region3.grid(row=3, column=3, rowspan=3, columnspan=2)
+        self.progress1.grid(column=3, row=1, columnspan=2)
+
+        self.region4.grid(row=8, column=3)
+        self.drawbutton.grid(column=3, row=0)
+        self.savebutton.grid(column=4, row=0)
 
         # now take care of sort-specific widgets
         self.update_controls()
@@ -116,15 +146,15 @@ class MainWindow:
 
         if sort == self.sort_pairs:
             print("sort_pairs")
-            self.roundslider.grid(column=3, row=1, columnspan=2)
+            self.roundslider.grid(column=3, row=0, columnspan=2)
 
         elif sort == self.sort_lines:
             print("sort_lines")
-            self.roundslider.grid(column=3, row=1, columnspan=2)
+            self.roundslider.grid(column=3, row=0, columnspan=2)
 
         elif sort == self.sort_extrema:
             print("sort_extrema")
-            self.progress2.grid(column=3, row=7, columnspan=2)
+            self.progress2.grid(column=3, row=2, columnspan=2)
 
         else:
             print("sort identification logic broke")
@@ -285,11 +315,11 @@ def weight(t):
     return r**2 + g**2 + b**2
 
 def main():
-    #assert len(sys.argv) > 1
-
+    filename = "prettyshit.png"
+    if len(sys.argv) > 1:
+        filename = sys.argv[1]
     root = tk.Tk()
-    #im_original = Image.open(sys.argv[1]).convert("RGB")
-    im_original = Image.open("prettyshit.png").convert("RGB")
+    im_original = Image.open(filename).convert("RGB")
     im_original.thumbnail((800, 700))
 
     mainWindow = MainWindow(root, im_original)
