@@ -5,8 +5,8 @@
 import time
 import sys
 import random
+from tkinter import ttk
 import tkinter as tk
-import heapq
 from PIL import Image, ImageTk
 
 class MainWindow:
@@ -28,13 +28,32 @@ class MainWindow:
             "Sort from extrema":self.sort_extrema,
         }
         self.currsort = tk.StringVar()
-        self.currsort.trace("w", self.update_controls)
         self.currsort.set(sorted(self.sorts)[0])
+        self.currsort.trace("w", self.update_controls)
 
         self.sortpicker = tk.OptionMenu(
             frame,
             self.currsort,
             *sorted(self.sorts),
+        )
+
+        # slider for adjusting number of rounds
+        self.roundslider = tk.Scale(
+            frame,
+            from_=1,
+            to=100,
+            orient=tk.HORIZONTAL,
+        )
+
+        # progress bars (most sorts use one; extrema sort uses two)
+        self.progress1 = ttk.Progressbar(
+            frame,
+            orient=tk.HORIZONTAL,
+        )
+
+        self.progress2 = ttk.Progressbar(
+            frame,
+            orient=tk.HORIZONTAL,
         )
 
         # do-interesting-shit button
@@ -69,21 +88,46 @@ class MainWindow:
             command=self.save_img,
         )
 
-        # pack everything into a nice grid layout
-        self.imglabel.grid(column=0, row=0, columnspan=3, rowspan=3)
+        # pack all the non-sort-specific widgets into a nice grid layout
+        self.imglabel.grid(column=0, row=0, columnspan=3, rowspan=8)
 
-        self.undobutton.grid(column=0, row=3)
-        self.indexlabel.grid(column=1, row=3)
-        self.redobutton.grid(column=2, row=3)
+        self.undobutton.grid(column=0, row=8)
+        self.indexlabel.grid(column=1, row=8)
+        self.redobutton.grid(column=2, row=8)
 
         self.sortpicker.grid(column=3, row=0, columnspan=2)
-        self.drawbutton.grid(column=3, row=2)
-        self.savebutton.grid(column=4, row=2)
+        self.progress1.grid(column=3, row=6, columnspan=2)
+        self.drawbutton.grid(column=3, row=8)
+        self.savebutton.grid(column=4, row=8)
+
+        # now take care of sort-specific widgets
+        self.update_controls()
 
     def update_controls(self, *args):
         print("Update event triggered.")
         print(args)
         print(self.currsort.get())
+
+        # remove every sort-specific widget, then add back the ones we want
+        self.roundslider.grid_remove()
+        self.progress2.grid_remove()
+
+        sort = self.sorts[self.currsort.get()]
+
+        if sort == self.sort_pairs:
+            print("sort_pairs")
+            self.roundslider.grid(column=3, row=1, columnspan=2)
+
+        elif sort == self.sort_lines:
+            print("sort_lines")
+            self.roundslider.grid(column=3, row=1, columnspan=2)
+
+        elif sort == self.sort_extrema:
+            print("sort_extrema")
+            self.progress2.grid(column=3, row=7, columnspan=2)
+
+        else:
+            print("sort identification logic broke")
 
     def save_img(self):
         parts = sys.argv[1].split(".")
@@ -126,15 +170,16 @@ class MainWindow:
         self.imglabel.update_idletasks()
 
     def sort_pairs(self, im):
-        self.sort_pairs_internal(im)
+        self.sort_pairs_internal(im, rounds=self.roundslider.get())
 
     def sort_lines(self, im):
-        self.sort_lines_internal(im)
+        self.sort_lines_internal(im, rounds=self.roundslider.get())
 
     def sort_extrema(self, im):
         self.sort_extrema_internal(im, minima=False, reverse=False)
 
     def sort_pairs_internal(self, im, rounds=30, vert=False):
+        self.progress1.configure(maximum=rounds, value=0)
         for i in range(rounds):
             for _ in range(5*max(im.size)):
                 x = random.randrange(0, im.size[0] - (1 if vert else 2))
@@ -151,9 +196,13 @@ class MainWindow:
                 tmp = im.getpixel(p1)
                 im.putpixel(p1, im.getpixel(p2))
                 im.putpixel(p2, tmp)
-            self.redraw()
+            self.progress1.step()
+
+            if i%3 == 0:
+                self.redraw()
 
     def sort_lines_internal(self, im, rounds=30, reverse=True, vert=True):
+        self.progress1.configure(maximum=rounds, value=0)
         for i in range(rounds):
             for _ in range(5):
                 x = random.randrange(0, im.size[0]-1)
@@ -170,16 +219,21 @@ class MainWindow:
 
                 for i, y in enumerate(range(y1, y2)):
                     im.putpixel((x, y), l[i])
-            self.redraw()
+            self.progress1.step()
+
+            if i%3 == 0:
+                self.redraw()
 
     def sort_extrema_internal(self, im, percol=5, reverse=True, minima=True, mindist=5,
-                    trimfactor=5):
+                    trimfactor=2):
+
+        self.progress1.configure(maximum=im.size[0]+1, value=0, mode="determinate")
+        self.progress2.configure(value=0)
         extrema = []
 
         # loop over columns, collecting top maximums or minimums of each
         # after this loop we have a populated extrema list & can start sorting
         for x in range(0, im.size[0]):
-            if x%35==0: print(x/im.size[0])
             local = []
             for y in range(0, im.size[1]):
                 pix = im.getpixel((x, y))
@@ -192,34 +246,38 @@ class MainWindow:
                     break
                 local = [pix for pix in local if abs(pix[1][1] - local[i][1][1]) > mindist]
             extrema += local[:percol]
+            self.progress1.step()
+
+            # redraw is expensive; we use it sparingly in this slow loop
+            self.progress1.update_idletasks()
 
         # trim off the lamest extrema -- negative trimfactor keeps whole list
         if trimfactor > 0:
             extrema.sort()
             extrema = extrema[:-len(extrema)//trimfactor]
 
-        #extrema.sort(key=lambda pix:pix[1][1]) # sort by y-coordinate -- looks cooler
+        self.progress2.configure(maximum=len(extrema))
+        drawcounter = 0
         for _, extremum in extrema:
+            drawcounter += 1
             x = extremum[0]
             y = extremum[1]
-            yprime = y - random.randint(1, im.size[1]//3)
-            #yprime = y - random.randint(1, y//3)
-            yprime = max(yprime, 0)
-
-            # make sure this sort doesn't intersect any other extrema
-            #for _, point in extrema:
-            #    if point[1] >= y: continue
-            #    if point[1] > yprime: yprime=point[1]-1
+            yprime = max(y - random.randint(1, im.size[1]//3), 0)
 
             pixels = []
             for y in range(yprime, y):
                 pixels.append(im.getpixel((x, y)))
             pixels.sort(key=weight, reverse=reverse)
 
-            for i, y in enumerate(range(yprime, y)):
-                im.putpixel((x, y), pixels[i])
+            for j, y in enumerate(range(yprime, y)):
+                im.putpixel((x, y), pixels[j])
 
-            self.redraw()
+            self.progress2.step()
+            if drawcounter % 40 == 0:
+                self.redraw()
+                drawcounter = 0
+
+        self.progress1.step()
 
 
 def weight(t):
@@ -227,10 +285,11 @@ def weight(t):
     return r**2 + g**2 + b**2
 
 def main():
-    assert len(sys.argv) > 1
+    #assert len(sys.argv) > 1
 
     root = tk.Tk()
-    im_original = Image.open(sys.argv[1]).convert("RGB")
+    #im_original = Image.open(sys.argv[1]).convert("RGB")
+    im_original = Image.open("prettyshit.png").convert("RGB")
     im_original.thumbnail((800, 700))
 
     mainWindow = MainWindow(root, im_original)
