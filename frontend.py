@@ -80,12 +80,52 @@ class MainWindow:
             *sorted(self.sorts),
         )
 
-        # slider for adjusting number of rounds
+        # direction picker for extrema sort
+        self.dirboxlabel = tk.Label(
+            self.region3,
+            text="Pick a sort direction:",
+        )
+        self.sortdir = tk.StringVar()
+        self.sortdir.set("Up")
+        self.dirbox = tk.OptionMenu(
+            self.region3,
+            self.sortdir,
+            "Up",
+            "Up & Left",
+            "Left",
+            "Down & Left",
+            "Down",
+            "Down & Right",
+            "Right",
+            "Up & Right",
+        )
+
+        # minima-maxima checkbox
+        self.sortfrommin = tk.IntVar()
+        self.mincheckbox = tk.Checkbutton(
+            self.region3,
+            text="Sort from minima?",
+            variable=self.sortfrommin,
+        )
+
+        # invert sort checkbox
+        self.invert = tk.IntVar()
+        self.invcheckbox = tk.Checkbutton(
+            self.region3,
+            text="Invert sort order?",
+            variable=self.invert
+        )
+
+        # slider & label for adjusting number of rounds
         self.roundslider = tk.Scale(
             self.region3,
             from_=1,
             to=100,
             orient=tk.HORIZONTAL,
+        )
+        self.roundlabel = tk.Label(
+            self.region3,
+            text="Specify number of iterations:",
         )
 
         # progress bars (most sorts use one; extrema sort uses two)
@@ -123,12 +163,13 @@ class MainWindow:
         self.region2.grid(row=0, column=3)
         self.sortpicker.grid(column=3, row=0, columnspan=2)
 
-        self.region3.grid(row=3, column=3, rowspan=3, columnspan=2)
-        self.progress1.grid(column=3, row=1, columnspan=2)
+        self.region3.grid(row=2, column=3, rowspan=5, columnspan=3)
+        self.invcheckbox.grid(row=3, column=0)
 
         self.region4.grid(row=8, column=3)
-        self.drawbutton.grid(column=3, row=0)
-        self.savebutton.grid(column=4, row=0)
+        self.drawbutton.grid(column=0, row=0)
+        self.savebutton.grid(column=1, row=0)
+        self.progress1.grid(column=0, row=1, columnspan=2)
 
         # now take care of sort-specific widgets
         self.update_controls()
@@ -140,21 +181,28 @@ class MainWindow:
 
         # remove every sort-specific widget, then add back the ones we want
         self.roundslider.grid_remove()
+        self.roundlabel.grid_remove()
         self.progress2.grid_remove()
+        self.dirbox.grid_remove()
+        self.dirboxlabel.grid_remove()
+        self.mincheckbox.grid_remove()
 
         sort = self.sorts[self.currsort.get()]
 
         if sort == self.sort_pairs:
-            print("sort_pairs")
-            self.roundslider.grid(column=3, row=0, columnspan=2)
+            self.roundlabel.grid(column=0, row=0)
+            self.roundslider.grid(column=0, row=1, columnspan=2)
 
         elif sort == self.sort_lines:
-            print("sort_lines")
-            self.roundslider.grid(column=3, row=0, columnspan=2)
+            self.roundlabel.grid(column=0, row=0)
+            self.roundslider.grid(column=0, row=1, columnspan=2)
 
         elif sort == self.sort_extrema:
-            print("sort_extrema")
-            self.progress2.grid(column=3, row=2, columnspan=2)
+            self.dirboxlabel.grid(column=0, row=0)
+            self.dirbox.grid(column=0, row=1)
+            self.mincheckbox.grid(column=0, row=4)
+
+            self.progress2.grid(column=0, row=2, columnspan=2)
 
         else:
             print("sort identification logic broke")
@@ -200,16 +248,45 @@ class MainWindow:
         self.imglabel.update_idletasks()
 
     def sort_pairs(self, im):
-        self.sort_pairs_internal(im, rounds=self.roundslider.get())
+        self.sort_pairs_internal(
+            im,
+            rounds=self.roundslider.get(),
+            reverse=self.invert.get(),
+        )
 
     def sort_lines(self, im):
-        self.sort_lines_internal(im, rounds=self.roundslider.get())
+        self.sort_lines_internal(
+            im,
+            rounds=self.roundslider.get(),
+            reverse=self.invert.get()
+        )
 
     def sort_extrema(self, im):
-        self.sort_extrema_internal(im, minima=False, reverse=False)
+        dirpick = self.sortdir.get()
+        direction = [0, 0]
 
-    def sort_pairs_internal(self, im, rounds=30, vert=False):
+        if "Left" in dirpick:
+            direction[0] = -1
+        elif "Right" in dirpick:
+            direction[0] = 1
+
+        if "Up" in dirpick:
+            direction[1] = -1
+        elif "Down" in dirpick:
+            direction[1] = 1
+
+        print(direction)
+
+        self.sort_extrema_internal(
+            im,
+            reverse=self.invert.get(),
+            direction=tuple(direction),
+            minima=self.sortfrommin.get(),
+        )
+
+    def sort_pairs_internal(self, im, rounds=30, vert=False, reverse=False):
         self.progress1.configure(maximum=rounds, value=0)
+        n = -1 if reverse else 1
         for i in range(rounds):
             for _ in range(5*max(im.size)):
                 x = random.randrange(0, im.size[0] - (1 if vert else 2))
@@ -217,7 +294,7 @@ class MainWindow:
                 p1 = (x, y)
                 p2 = (x, y+1) if vert else (x+1, y)
 
-                while weight(im.getpixel(p1)) >= weight(im.getpixel(p2)):
+                while weight(im.getpixel(p1))*n >= weight(im.getpixel(p2))*n:
                     x = random.randrange(0, im.size[0] - (1 if vert else 2))
                     y = random.randrange(0, im.size[1] - (2 if vert else 1))
                     p1 = (x, y)
@@ -255,14 +332,13 @@ class MainWindow:
                 self.redraw()
 
     def sort_extrema_internal(self, im, percol=5, reverse=True, minima=True, mindist=5,
-                    trimfactor=2):
+                    trimfactor=2, direction=(1, -1), debug=False):
 
         self.progress1.configure(maximum=im.size[0]+1, value=0, mode="determinate")
         self.progress2.configure(value=0)
         extrema = []
 
-        # loop over columns, collecting top maximums or minimums of each
-        # after this loop we have a populated extrema list & can start sorting
+        # builds a list of extrema one column at a time
         for x in range(0, im.size[0]):
             local = []
             for y in range(0, im.size[1]):
@@ -288,26 +364,62 @@ class MainWindow:
 
         self.progress2.configure(maximum=len(extrema))
         drawcounter = 0
+        absdir = (abs(direction[0]), abs(direction[1]))
         for _, extremum in extrema:
-            drawcounter += 1
             x = extremum[0]
             y = extremum[1]
-            yprime = max(y - random.randint(1, im.size[1]//3), 0)
+
+            if debug:
+                try:
+                    for d in ((-2,-2), (-2,-1), (-2, 0), (-2, 1),
+                              (-2, 2), (-1, 2), (0,  2),  (1, 2),
+                              (2,  2), (2,  1), (2,  0),  (2,-1),
+                              (2, -2), (1, -2), (0, -2), (-1,-2)):
+                        im.putpixel((x-d[0], y-d[1]), (255, 0, 0))
+                except:
+                    # exception thrown if loop goes off the edge of the canvas
+                    pass
+
+            cap = min(im.size[0]//3,
+                      im.size[1]//3,
+                      x if direction[0] == -1 else im.size[0]-x-1,
+                      y if direction[1] == -1 else im.size[1]-y-1)
+
+            if cap <= 1: continue
+            delta = random.randint(1, cap)
+            xprime = x + delta*direction[0]
+            yprime = y + delta*direction[1]
+
+            if debug:
+                try:
+                    for d in ((-2,-2), (-2,-1), (-2, 0), (-2, 1),
+                              (-2, 2), (-1, 2), (0,  2),  (1, 2),
+                              (2,  2), (2,  1), (2,  0),  (2,-1),
+                              (2, -2), (1, -2), (0, -2), (-1,-2)):
+                        im.putpixel((xprime+d[0], yprime+d[1]), (0, 255, 0))
+                except:
+                    pass
 
             pixels = []
-            for y in range(yprime, y):
-                pixels.append(im.getpixel((x, y)))
-            pixels.sort(key=weight, reverse=reverse)
+            x_, y_ = x, y
+            while x_ != xprime or y_ != yprime:
+                #print(x, y, "|", x_, y_, "|", xprime, yprime)
+                pixels.append(im.getpixel((x_, y_)))
+                x_ += direction[0]
+                y_ += direction[1]
 
-            for j, y in enumerate(range(yprime, y)):
-                im.putpixel((x, y), pixels[j])
+            pixels.sort(key=weight, reverse=reverse)
+            for i, pix in enumerate(pixels):
+                im.putpixel((x + direction[0]*i, y + direction[1]*i), pix)
 
             self.progress2.step()
-            if drawcounter % 40 == 0:
+            drawcounter += 1
+            if drawcounter == 40:
                 self.redraw()
                 drawcounter = 0
 
         self.progress1.step()
+        self.redraw()
 
 
 def weight(t):
