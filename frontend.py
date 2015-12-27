@@ -22,8 +22,10 @@ class MainWindow:
             bd=2,
         )
 
-        self.region2 = tk.Frame(
+        self.region2 = tk.LabelFrame(
             frame,
+            text="Sort Method",
+            labelanchor="n",
             relief=tk.RAISED,
             bd=2,
         )
@@ -154,19 +156,23 @@ class MainWindow:
         )
 
         # pack all the non-sort-specific widgets into a nice grid layout
+        # region1: image
         self.region1.grid(row=0, column=0, rowspan=9, columnspan=3)
         self.imglabel.grid(column=0, row=0, columnspan=3)
         self.undobutton.grid(column=0, row=1)
         self.indexlabel.grid(column=1, row=1)
         self.redobutton.grid(column=2, row=1)
 
-        self.region2.grid(row=0, column=3)
-        self.sortpicker.grid(column=3, row=0, columnspan=2)
+        # region2: sort picker
+        self.region2.grid(row=0, column=3, columnspan=3)
+        self.sortpicker.grid(column=3, row=0, columnspan=3)
 
+        # region3: custom twiddlers
         self.region3.grid(row=2, column=3, rowspan=5, columnspan=3)
         self.invcheckbox.grid(row=3, column=0)
 
-        self.region4.grid(row=8, column=3)
+        # region4: run/save
+        self.region4.grid(row=8, column=3, columnspan=3)
         self.drawbutton.grid(column=0, row=0)
         self.savebutton.grid(column=1, row=0)
         self.progress1.grid(column=0, row=1, columnspan=2)
@@ -401,10 +407,14 @@ class MainWindow:
                     pass
 
             pixels = []
+            startweight = weight(im.getpixel((x, y)))
             x_, y_ = x, y
             while x_ != xprime or y_ != yprime:
-                #print(x, y, "|", x_, y_, "|", xprime, yprime)
-                pixels.append(im.getpixel((x_, y_)))
+                pix = im.getpixel((x_, y_))
+                if weight(pix) > startweight:
+                    break
+
+                pixels.append(pix)
                 x_ += direction[0]
                 y_ += direction[1]
 
