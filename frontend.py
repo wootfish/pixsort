@@ -73,7 +73,8 @@ class MainWindow:
             "Sort from extrema":self.sort_extrema,
         }
         self.currsort = tk.StringVar()
-        self.currsort.set(sorted(self.sorts)[0])
+        #self.currsort.set(sorted(self.sorts)[0])
+        self.currsort.set("Sort from extrema")
         self.currsort.trace("w", self.update_controls)
 
         self.sortpicker = tk.OptionMenu(
@@ -106,15 +107,24 @@ class MainWindow:
         self.sortfrommin = tk.IntVar()
         self.mincheckbox = tk.Checkbutton(
             self.region3,
-            text="Sort from minima?",
+            text="Sort from brightest",
             variable=self.sortfrommin,
+        )
+
+        # clip lines checkbox
+        self.clipsortbars = tk.IntVar()
+        self.clipcheckbox = tk.Checkbutton(
+            self.region3,
+            anchor="w",
+            text="Clip sort bars",
+            variable=self.clipsortbars,
         )
 
         # invert sort checkbox
         self.invert = tk.IntVar()
         self.invcheckbox = tk.Checkbutton(
             self.region3,
-            text="Invert sort order?",
+            text="Invert sort order",
             variable=self.invert
         )
 
@@ -169,7 +179,7 @@ class MainWindow:
 
         # region3: custom twiddlers
         self.region3.grid(row=2, column=3, rowspan=5, columnspan=3)
-        self.invcheckbox.grid(row=3, column=0)
+        self.invcheckbox.grid(row=3, column=0, sticky=tk.W)
 
         # region4: run/save
         self.region4.grid(row=8, column=3, columnspan=3)
@@ -181,10 +191,6 @@ class MainWindow:
         self.update_controls()
 
     def update_controls(self, *args):
-        print("Update event triggered.")
-        print(args)
-        print(self.currsort.get())
-
         # remove every sort-specific widget, then add back the ones we want
         self.roundslider.grid_remove()
         self.roundlabel.grid_remove()
@@ -192,6 +198,7 @@ class MainWindow:
         self.dirbox.grid_remove()
         self.dirboxlabel.grid_remove()
         self.mincheckbox.grid_remove()
+        self.clipcheckbox.grid_remove()
 
         sort = self.sorts[self.currsort.get()]
 
@@ -206,7 +213,8 @@ class MainWindow:
         elif sort == self.sort_extrema:
             self.dirboxlabel.grid(column=0, row=0)
             self.dirbox.grid(column=0, row=1)
-            self.mincheckbox.grid(column=0, row=4)
+            self.clipcheckbox.grid(column=0, row=4, sticky=tk.W)
+            self.mincheckbox.grid(column=0, row=5, sticky=tk.W)
 
             self.progress2.grid(column=0, row=2, columnspan=2)
 
@@ -216,10 +224,10 @@ class MainWindow:
     def save_img(self):
         parts = sys.argv[1].split(".")
         name = ''.join(parts[:-1]) + "_" + time.strftime("%Y-%m-%d_%I:%M:%S")
-        ext = parts[-1]
 
-        filename = name + "." + ext
+        filename = name + ".png"
         self.images[self.img_index].save(filename, "PNG")
+        print("Image saved as", name+".png")
 
     def decrement_ind(self):
         if self.img_index > 0:
@@ -281,13 +289,12 @@ class MainWindow:
         elif "Down" in dirpick:
             direction[1] = 1
 
-        print(direction)
-
         self.sort_extrema_internal(
             im,
             reverse=self.invert.get(),
             direction=tuple(direction),
             minima=self.sortfrommin.get(),
+            clipbars=self.clipsortbars.get(),
         )
 
     def sort_pairs_internal(self, im, rounds=30, vert=False, reverse=False):
@@ -337,10 +344,10 @@ class MainWindow:
             if i%3 == 0:
                 self.redraw()
 
-    def sort_extrema_internal(self, im, percol=5, reverse=True, minima=True, mindist=5,
-                    trimfactor=2, direction=(1, -1), debug=False):
+    def sort_extrema_internal(self, im, percol=9, reverse=True, minima=True, mindist=4,
+                    trimfactor=8, direction=(1, -1), clipbars=False):
 
-        self.progress1.configure(maximum=im.size[0]+1, value=0, mode="determinate")
+        self.progress1.configure(maximum=im.size[0]+1, value=0)
         self.progress2.configure(value=0)
         extrema = []
 
@@ -350,8 +357,8 @@ class MainWindow:
             for y in range(0, im.size[1]):
                 pix = im.getpixel((x, y))
                 pixweight = pix[0]**2 + pix[1]**2 + pix[2]**2
-                local.append((pixweight*(1 if minima else -1), (x, y)))
-            local.sort()
+                local.append((pixweight, (x, y)))
+            local.sort(reverse=minima)
 
             for i in range(percol):
                 if i >= len(local):
@@ -365,64 +372,55 @@ class MainWindow:
 
         # trim off the lamest extrema -- negative trimfactor keeps whole list
         if trimfactor > 0:
-            extrema.sort()
+            extrema.sort(reverse=minima)
             extrema = extrema[:-len(extrema)//trimfactor]
 
         self.progress2.configure(maximum=len(extrema))
         drawcounter = 0
         absdir = (abs(direction[0]), abs(direction[1]))
         for _, extremum in extrema:
+            self.progress2.step()
             x = extremum[0]
             y = extremum[1]
-
-            if debug:
-                try:
-                    for d in ((-2,-2), (-2,-1), (-2, 0), (-2, 1),
-                              (-2, 2), (-1, 2), (0,  2),  (1, 2),
-                              (2,  2), (2,  1), (2,  0),  (2,-1),
-                              (2, -2), (1, -2), (0, -2), (-1,-2)):
-                        im.putpixel((x-d[0], y-d[1]), (255, 0, 0))
-                except:
-                    # exception thrown if loop goes off the edge of the canvas
-                    pass
 
             cap = min(im.size[0]//3,
                       im.size[1]//3,
                       x if direction[0] == -1 else im.size[0]-x-1,
                       y if direction[1] == -1 else im.size[1]-y-1)
 
-            if cap <= 1: continue
+            if cap <= 1:
+                continue
+
             delta = random.randint(1, cap)
             xprime = x + delta*direction[0]
             yprime = y + delta*direction[1]
-
-            if debug:
-                try:
-                    for d in ((-2,-2), (-2,-1), (-2, 0), (-2, 1),
-                              (-2, 2), (-1, 2), (0,  2),  (1, 2),
-                              (2,  2), (2,  1), (2,  0),  (2,-1),
-                              (2, -2), (1, -2), (0, -2), (-1,-2)):
-                        im.putpixel((xprime+d[0], yprime+d[1]), (0, 255, 0))
-                except:
-                    pass
 
             pixels = []
             startweight = weight(im.getpixel((x, y)))
             x_, y_ = x, y
             while x_ != xprime or y_ != yprime:
                 pix = im.getpixel((x_, y_))
-                if weight(pix) > startweight:
-                    break
+
+                if clipbars and abs(x - x_) > mindist:
+                    currweight = weight(pix)
+                    # if we started at a local minimum but we've reached
+                    # somewhere with an even lower weight, stop
+                    if minima and currweight < startweight:
+                        break
+
+                    # if we started at a local maximum but we've reached
+                    # somewhere with an even greater weight, stop
+                    if (not minima) and currweight > startweight:
+                        break
 
                 pixels.append(pix)
                 x_ += direction[0]
                 y_ += direction[1]
 
-            pixels.sort(key=weight, reverse=reverse)
+            pixels.sort(key=weight, reverse=(reverse^minima))
             for i, pix in enumerate(pixels):
                 im.putpixel((x + direction[0]*i, y + direction[1]*i), pix)
 
-            self.progress2.step()
             drawcounter += 1
             if drawcounter == 40:
                 self.redraw()
