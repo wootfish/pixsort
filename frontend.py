@@ -120,6 +120,31 @@ class MainWindow:
             variable=self.clipsortbars,
         )
 
+        # trim factor for extrema sort
+        # 0 = no trim
+        self.trimslider = tk.Scale(
+            self.region3,
+            from_=0,
+            to=100,
+            orient=tk.HORIZONTAL,
+        )
+        self.trimlabel = tk.Label(
+            self.region3,
+            text="% of extrema to discard:",
+        )
+
+        # extrema per column for extrema sort
+        self.percolslider = tk.Scale(
+            self.region3,
+            from_=0,
+            to=30,
+            orient=tk.HORIZONTAL,
+        )
+        self.percollabel = tk.Label(
+            self.region3,
+            text="Extrema per column:",
+        )
+
         # invert sort checkbox
         self.invert = tk.IntVar()
         self.invcheckbox = tk.Checkbutton(
@@ -179,7 +204,7 @@ class MainWindow:
 
         # region3: custom twiddlers
         self.region3.grid(row=2, column=3, rowspan=5, columnspan=3)
-        self.invcheckbox.grid(row=3, column=0, sticky=tk.W)
+        self.invcheckbox.grid(row=10, column=0, sticky=tk.W)
 
         # region4: run/save
         self.region4.grid(row=8, column=3, columnspan=3)
@@ -199,6 +224,10 @@ class MainWindow:
         self.dirboxlabel.grid_remove()
         self.mincheckbox.grid_remove()
         self.clipcheckbox.grid_remove()
+        self.trimlabel.grid_remove()
+        self.trimslider.grid_remove()
+        self.percollabel.grid_remove()
+        self.percolslider.grid_remove()
 
         sort = self.sorts[self.currsort.get()]
 
@@ -213,8 +242,14 @@ class MainWindow:
         elif sort == self.sort_extrema:
             self.dirboxlabel.grid(column=0, row=0)
             self.dirbox.grid(column=0, row=1)
-            self.clipcheckbox.grid(column=0, row=4, sticky=tk.W)
-            self.mincheckbox.grid(column=0, row=5, sticky=tk.W)
+
+            self.trimlabel.grid(column=0, row=4)
+            self.trimslider.grid(column=0, row=5)
+            self.percollabel.grid(column=0, row=6)
+            self.percolslider.grid(column=0, row=7)
+
+            self.mincheckbox.grid(column=0, row=8, sticky=tk.W)
+            self.clipcheckbox.grid(column=0, row=9, sticky=tk.W)
 
             self.progress2.grid(column=0, row=2, columnspan=2)
 
@@ -295,6 +330,9 @@ class MainWindow:
             direction=tuple(direction),
             minima=self.sortfrommin.get(),
             clipbars=self.clipsortbars.get(),
+            percol=self.percolslider.get(),
+            trimfactor=0 if self.trimslider.get() == 0
+                       else 100*1/self.trimslider.get(),
         )
 
     def sort_pairs_internal(self, im, rounds=30, vert=False, reverse=False):
@@ -347,6 +385,7 @@ class MainWindow:
     def sort_extrema_internal(self, im, percol=9, reverse=True, minima=True, mindist=4,
                     trimfactor=8, direction=(1, -1), clipbars=False):
 
+        print(trimfactor)
         self.progress1.configure(maximum=im.size[0]+1, value=0)
         self.progress2.configure(value=0)
         extrema = []
@@ -373,7 +412,7 @@ class MainWindow:
         # trim off the lamest extrema -- negative trimfactor keeps whole list
         if trimfactor > 0:
             extrema.sort(reverse=minima)
-            extrema = extrema[:-len(extrema)//trimfactor]
+            extrema = extrema[:-int(len(extrema)//trimfactor)]
 
         self.progress2.configure(maximum=len(extrema))
         drawcounter = 0
