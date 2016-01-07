@@ -1,10 +1,8 @@
 # pixsort
 pixsort is a workspace repo for my experiments with pixel-sorting code.
 
-frontend.py is a script which provides a GUI interface to various pixel sorts. It is currently very much a work in progress, and only provides minimal functionality as of yet.
+frontend.py is a script which provides a visual interface for applying pixel sort effects to images. All new development is taking place on this script, and it is slowly but steadily growing more and more capable.
 
-Within the "oldstuff" directory are various proof-of-concept scripts, containing much inconsistency, redundancy, etc, but which currently allow a greater degree of flexibility.
+Within the "oldstuff" directory are various proof-of-concept scripts. These are very hacky and slapped-together. Some are broken entirely. They were where this project started and are now just included for reference as their functionality slowly gets folded into the frontend.py interface.
 
-The idea of frontend.py is to eventually bring all the ideas explored there & more together under one roof, and to simplify things like experimenting with parameter tweaks or composing sorts.
-
-Note that there is no shortage of bugs and broken things in the oldstuff/* scripts.
+In addition to the standard packages, frontend.py reuqires the SciPy and Pillow libraries. It also depends on tkinter, which usually (but not always, to the best of my understanding) comes pre-installed with Python.
