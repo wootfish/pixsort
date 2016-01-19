@@ -8,6 +8,7 @@ import random
 from tkinter import ttk
 import tkinter as tk
 from PIL import Image, ImageTk
+import scipy.ndimage as nd
 
 class MainWindow:
     def __init__(self, master, im):
@@ -71,6 +72,7 @@ class MainWindow:
             "Pixel swap":self.sort_pairs,
             "Band sort":self.sort_lines,
             "Sort from extrema":self.sort_extrema,
+            #"Edge-bounded bands":self.sort_sobel,
         }
         self.currsort = tk.StringVar()
         #self.currsort.set(sorted(self.sorts)[0])
@@ -248,6 +250,9 @@ class MainWindow:
             self.percollabel.grid(column=0, row=6)
             self.percolslider.grid(column=0, row=7)
 
+            self.trimslider.set(12)
+            self.percolslider.set(9)
+
             self.mincheckbox.grid(column=0, row=8, sticky=tk.W)
             self.clipcheckbox.grid(column=0, row=9, sticky=tk.W)
 
@@ -335,6 +340,9 @@ class MainWindow:
                        else 100*1/self.trimslider.get(),
         )
 
+    def sort_sobel(self, im):
+        self.sort_sobel_internal_horvert(im)
+
     def sort_pairs_internal(self, im, rounds=30, vert=False, reverse=False):
         self.progress1.configure(maximum=rounds, value=0)
         n = -1 if reverse else 1
@@ -382,15 +390,16 @@ class MainWindow:
             if i%3 == 0:
                 self.redraw()
 
-    def sort_extrema_internal(self, im, percol=9, reverse=True, minima=True, mindist=4,
-                    trimfactor=8, direction=(1, -1), clipbars=False):
+    def sort_extrema_internal(self, im, percol=9, reverse=True, minima=True,
+                              mindist=4, trimfactor=8, direction=(1, -1),
+                              clipbars=False, keyfunc=lambda t:t[1][1]):
 
         print(trimfactor)
         self.progress1.configure(maximum=im.size[0]+1, value=0)
         self.progress2.configure(value=0)
         extrema = []
 
-        # builds a list of extrema one column at a time
+        # builds a list of extrema, one column at a time
         for x in range(0, im.size[0]):
             local = []
             for y in range(0, im.size[1]):
@@ -405,14 +414,17 @@ class MainWindow:
                 local = [pix for pix in local if abs(pix[1][1] - local[i][1][1]) > mindist]
             extrema += local[:percol]
             self.progress1.step()
-
-            # redraw is expensive; we use it sparingly in this slow loop
             self.progress1.update_idletasks()
 
         # trim off the lamest extrema -- negative trimfactor keeps whole list
         if trimfactor > 0:
             extrema.sort(reverse=minima)
             extrema = extrema[:-int(len(extrema)//trimfactor)]
+
+        # order the extrema as specified -- this changes the sequence they get
+        # drawn in, which changes the end result. default keyfunc sorts by
+        # y-coordinate
+        extrema.sort(key=keyfunc)
 
         self.progress2.configure(maximum=len(extrema))
         drawcounter = 0
@@ -457,6 +469,8 @@ class MainWindow:
                 y_ += direction[1]
 
             pixels.sort(key=weight, reverse=(reverse^minima))
+            #pixels.sort(key=lambda pix:-abs(weight(pix)-startweight),
+            #            reverse=not reverse)
             for i, pix in enumerate(pixels):
                 im.putpixel((x + direction[0]*i, y + direction[1]*i), pix)
 
@@ -467,6 +481,12 @@ class MainWindow:
 
         self.progress1.step()
         self.redraw()
+
+    def sort_sobel_internal_horvert(self, im, hor=True):
+        # take sobel gradient -- we're applying the effect horizontally or
+        # vertically so this is pretty easy!
+        gradient = nd.filters.sobel(img, hor)
+
 
 
 def weight(t):
